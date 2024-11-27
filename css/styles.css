@@ -221,5 +221,10 @@ button:disabled {
     background-color: #ccc;
 }
 
+.tarjeta-container {
+    width: 100%; /* O el tamaño deseado */
+    height: auto; /* Ajusta el alto según sea necesario */
+    border: 1px solid #ccc; /* Opcional: para que sea más evidente el contenedor */
+}
 
 

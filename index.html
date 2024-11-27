@@ -52,6 +52,8 @@
             <label for="googleSite">Link de Google Site</label>
             <input type="text" id="googleSite" placeholder="Agrega el link del Google Site" required aria-label="Campo de link de Google Site" />
 
+            <label for="uploadImage">Adjuntar Foto:</label>
+            <input type="file" id="uploadImage" accept="image/*" aria-label="Adjuntar foto" />
             <!-- Botones para cargar archivo, borrar lista y exportar -->
             <button class="btn btn-primary" id="btnUpload" onclick="uploadFile()">Cargar Excel</button>
             <button class="btn btn-secondary" id="btnClear" onclick="clearList()">Borrar Lista</button>
@@ -67,6 +69,7 @@
                     <th>Frase</th>
                     <th>Link de Google Site</th>
                     <th>Link de Invitación</th>
+                    <th>Imagen de Fondo</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -176,6 +179,7 @@ window.onload = function() {
 }
 
 
+/*
 function crearFila(cell, myLink, personalizacion) {
     const row = document.createElement('tr');
     const nombre = cell.Nombre;
@@ -193,8 +197,30 @@ function crearFila(cell, myLink, personalizacion) {
         `<td><button onclick="copiarContenido(this)" class="btn-copy">Copiar</button></td>`;
         
     return row;
+ } */
+
+
+function crearFila(cell, myLink, personalizacion, imagenDataURL) {
+    const row = document.createElement('tr');
+    const nombre = cell.Nombre;
+    const pases = cell.Pases;
+    const frases = cell.Frase;
+
+    const URLLink = encodeURI(`https://tufiesta.netlify.app/?${personalizacion}&n=${nombre}&p=${pases}&f=${frases}&l=${myLink}`);
+
+    row.innerHTML = 
+      `<td>${nombre}</td>` +
+      `<td>${pases}</td>` +
+      `<td>${frases}</td>` +
+      `<td><input type="text" value="${myLink}" name="GoogleLink" /></td>` +
+      `<td><input type="text" value="${URLLink}" name="InvitationLink" /></td>` +
+      `<td>${imagenDataURL ? `<button onclick="establecerFondo('${imagenDataURL}')" class="btn-set-bg">Establecer Fondo</button>` : "Sin Imagen"}</td>` +
+      `<td><button onclick="copiarContenido(this)" class="btn-copy">Copiar</button></td>`;
+    return row;
 }
 
+
+/*
 function uploadFile() {
     const fileInput = document.getElementById('uploadFile');
     const siteLink = document.getElementById('googleSite');
@@ -239,6 +265,53 @@ function uploadFile() {
     };
     reader.readAsArrayBuffer(file);
 }
+*/
+
+function uploadFile() {
+    const fileInput = document.getElementById('uploadFile');
+    const imageInput = document.getElementById('uploadImage');
+    const siteLink = document.getElementById('googleSite');
+    const file = fileInput.files[0];
+    const myLink = siteLink.value;
+
+    if (!file || myLink === '') {
+        alert("Selecciona un archivo de Excel y agrega el link de Google Site.");
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        const tableBody = document.querySelector('#eventTable tbody');
+        tableBody.innerHTML = '';
+
+        const imageFile = imageInput.files[0];
+        if (imageFile) {
+            const imageReader = new FileReader();
+            imageReader.onload = function (imgEvent) {
+                const imageDataURL = imgEvent.target.result;
+                jsonData.slice(1).forEach(rowData => {
+                    const cell = { 
+                        Nombre: rowData[0],
+                        Pases: rowData[1],
+                        Frase: rowData[2]
+                    };
+                    const tableRow = crearFila(cell, myLink, "", imageDataURL);
+                    tableBody.appendChild(tableRow);
+                });
+            };
+            imageReader.readAsDataURL(imageFile);
+            document.getElementById('btnExport').disabled = false;
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
 
 function copiarContenido(element) {
     const invitationLink = element.parentElement.parentElement.querySelector('input[name="InvitationLink"]');
@@ -252,7 +325,7 @@ function copiarContenido(element) {
 
    
 
-     function exportList() {
+function exportList() {
     const rows = document.querySelectorAll('#eventTable tbody tr');
     const data = Array.from(rows).map(row => ({
         Nombre: row.children[0].textContent,
@@ -272,7 +345,53 @@ function copiarContenido(element) {
     swal("Éxito al Exportar", "Archivo de Excel Exportado.", "success");
 }
 
+// Adjuntar fotografia
+function procesarImagen() {
+    const imageInput = document.getElementById('uploadImage');
+    imageInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const imgPreview = document.createElement('img');
+                imgPreview.src = e.target.result;
+                imgPreview.alt = "Previsualización de la Imagen";
+                imgPreview.style.width = "100px"; // Ajusta el tamaño según sea necesario
+                imgPreview.style.height = "auto";
 
+                // Agregar la previsualización al DOM (ajusta el contenedor según tu diseño)
+                const previewContainer = document.getElementById('tarjeta-container');
+                previewContainer.appendChild(imgPreview);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+}
+
+// Llama a esta función en `window.onload` o donde inicialices eventos
+procesarImagen();
+
+function establecerFondo(imagenDataURL) {
+      const tarjeta = document.getElementById('tarjeta-container');
+    
+    // Aplica la imagen como fondo eliminando cualquier color de fondo
+    tarjeta.style.backgroundImage = `url(${imagenDataURL})`;
+    tarjeta.style.backgroundColor = 'transparent'; // Remueve el color de fondo
+    tarjeta.style.backgroundSize = 'cover'; // Ajusta la imagen al contenedor
+    tarjeta.style.backgroundRepeat = 'no-repeat';
+    tarjeta.style.backgroundPosition = 'center';
+}
+
+
+// Función para borrar todas las filas de la tabla (excepto el encabezado)
+function clearList() {
+    const tableBody = document.querySelector('#eventTable tbody');
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="6" style="text-align:center;">No hay datos disponibles.</td>
+        </tr>`;
+    swal("Tabla limpiada", "La lista de eventos ha sido borrada.", "success");
+}
 
     </script>
 </body>
